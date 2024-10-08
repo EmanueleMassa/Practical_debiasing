@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-zeta = 0.3
+zeta = 0.7
 alpha = 1.0
 theta0 = 1.0
 fmt ='_zeta'+"{:.2f}".format(zeta)+'_theta'+"{:.2f}".format(theta0)
