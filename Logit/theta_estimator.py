@@ -44,13 +44,13 @@ def run_sim(theta0, n, zeta, values, m):
     toc = time.time()
     print('total elapsed time = ' + str((toc-tic)/60))
 
-    t_df.to_csv('sim'+fmt+'.csv')
+    t_df.to_csv('data/sim'+fmt+'.csv')
 
     plt.figure()
     bins_edges = np.arange(0.0, 2.0, 0.05)
     plt.hist(thetas, density = True, bins = bins_edges)
     plt.axvline(x = theta0, color = 'red')
-    plt.savefig('histogram_theta'+fmt+'.png')
+    plt.savefig('figures/histogram_theta'+fmt+'.png')
     return 
 
 
