@@ -69,6 +69,6 @@ def run_experiment(zeta, theta0):
 
     return 
 
-theta0 = 1.0
-for zeta in [0.7]:
+theta0 = 0.5
+for zeta in [0.7, 0.3]:
     run_experiment(zeta, theta0)

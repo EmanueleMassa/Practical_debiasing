@@ -88,7 +88,7 @@ plt.plot(emp_quants, theo_quants_db, 'ko', label = 'de-biased')
 plt.plot(emp_quants, emp_quants, 'r-')
 plt.xlabel('empirical quantiles')
 plt.ylabel('theoretical quantiles')
-plt.savefig('figures/qq_plot'+fmt+'.png')
+plt.savefig('qq_plot'+fmt+'.png')
 
 plt.figure()
 plt.plot(beta0, db_beta, 'ko')
@@ -96,7 +96,7 @@ plt.plot(beta0, db_beta, 'ko')
 plt.plot(beta0, beta0, 'r.')
 plt.xlabel(r'$\mathbf{\beta}_0$')
 plt.ylabel(r'$\hat{\mathbf{\beta}}$')
-plt.savefig('figures/scatter_plot'+fmt+'.png')
+plt.savefig('scatter_plot'+fmt+'.png')
 
 
 

@@ -20,14 +20,14 @@ def set_cov(corr, l):
 
 
 #covariate to sample size  ratio
-zeta = 0.7
+zeta = 0.3
 alphas = np.exp(np.linspace(np.log(4.0), np.log(0.5), 100))
 #sample size
 n = 1000
 #number of covariates
 p =  int(zeta * n)
 #true signal strength
-theta0 = 2.0
+theta0 = 1.0
 fmt = '_zeta' +"{:.2f}".format(zeta)+'_theta0'+"{:.2f}".format(theta0)
 #define the true parameters of the cumulative hazard
 phi0 = - np.log(2)
@@ -78,27 +78,30 @@ theo_quants_db = [Q(ord_res_db[j]) for j in range(len(ord_res_db))]
 
 plt.figure()
 plt.title('QQ_plot')
-plt.plot(emp_quants, theo_quants_db, 'ko', label = 'de-biased')
+plt.plot(emp_quants, theo_quants_db, 'bo', label = 'de-biased')
 plt.plot(emp_quants, emp_quants, 'r-')
+plt.legend()
 plt.xlabel('empirical quantiles')
 plt.ylabel('theoretical quantiles')
 plt.savefig('figures/qq_plot'+fmt+'.png')
 
 plt.figure()
-plt.plot(beta0, beta, 'ko')
-plt.plot(beta0, db_beta, 'b^')
+plt.plot(beta0, beta, 'ko', label = 'selected cy approximate CV')
+plt.plot(beta0, db_beta, 'bo', label = 'de-biased')
 plt.plot(beta0, beta0, 'r.')
 plt.xlabel(r'$\mathbf{\beta}_0$')
 plt.ylabel(r'$\hat{\mathbf{\beta}}$')
+plt.legend()
 plt.savefig('figures/scatter_plot_beta'+fmt+'.png')
 
 plt.figure()
 cox.fit_frailty(cox.theta_est)
-plt.plot(GM.ch(cox.t), cox.H, 'k-', ds = 'steps-post')
-plt.plot(GM.ch(cox.t), cox.H_frailty, 'b-', ds = 'steps-post')
+plt.plot(GM.ch(cox.t), cox.H, 'k-', ds = 'steps-post', label = 'selected cy approximate CV')
+plt.plot(GM.ch(cox.t), cox.H_frailty, 'b-', ds = 'steps-post', label = 'de-biased')
 plt.plot(GM.ch(cox.t), GM.ch(cox.t), 'r-')
 plt.xlabel(r'$\Lambda_0$')
 plt.ylabel(r'$\hat{\mathbf{\Lambda}}_n$')
+plt.legend()
 plt.savefig('figures/scatter_plot_H'+fmt+'.png')
 
 plt.show()

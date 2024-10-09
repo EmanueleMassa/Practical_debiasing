@@ -2,21 +2,68 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numpy.random as rnd 
 from numba import njit, vectorize
-from joblib import Parallel, delayed
-import pandas as pd
-import time
 
 GH = np.loadtxt('GH.txt')
 gp = np.sqrt(2)*GH[:,0]
 gw = GH[:,1]/np.sqrt(np.pi)
 
-@njit
-def f(theta):
-    return gw @ (np.tanh(theta * gp ) * gp)
+# @njit
+# def f1(x):
+#     theta = x[0]
+#     phi = x[1]
+#     z = np.tanh(theta * gp + phi)
+#     return gw @ z
 
-@njit
-def df(theta):
-    return gw @ ( gp * gp * (1.0 - np.tanh(theta * gp)**2))
+# @njit
+# def f2(x):
+#     theta = x[0]
+#     phi = x[1]
+#     z = np.tanh(theta * gp + phi)
+#     return gw @ ( (1.0 - z**2) * gp**2)
+
+# @njit
+# def df1(x):
+#     theta = x[0]
+#     phi = x[1]
+#     z = np.tanh(theta * gp + phi)
+#     return gw @ ( (1.0 - z**2) * gp**2)
+
+# @njit
+# def df2(x):
+#     theta = x[0]
+#     phi = x[1]
+#     z = np.tanh(theta * gp + phi)
+#     return gw @ ( (1.0 - z**2) * gp)
+
+# @njit
+# def df3(x):
+#     theta = x[0]
+#     phi = x[1]
+#     z = np.tanh(theta * gp + phi)
+#     return gw @ ( (1.0 - z**2))
+
+
+
+# @njit
+def f(x):
+    theta = x[0]
+    phi = x[1]
+    z = np.tanh(theta * gp + phi)
+    j1 = gw @ (gp * z)
+    j2 = gw @ z
+    res = np.array([j1, j2], float)
+    return res
+
+# @njit
+def df(x):
+    theta = x[0]
+    phi = x[1]
+    z = np.tanh(theta * gp + phi)
+    j1 = gw @ ( (1.0 - z**2) * gp**2)
+    j2 = gw @ ( (1.0 - z**2) * gp)
+    j3 = gw @ ( (1.0 - z**2))
+    res = np.array([[j1, j2], [j2, j3]], float)
+    return res
 
 @vectorize
 def s_in(x, a):
@@ -97,24 +144,46 @@ def logit_loss(t, lp):
     loss = np.mean( np.log(2 * np.cosh(lp)) - lp * t)
     return loss
 
-@njit
-def compute_theta(x, theta_in, max_its = 300):
-    theta = theta_in
+# @njit
+# def compute_theta(x, theta_in, max_its = 300):
+#     theta = theta_in
+#     err = 1.0
+#     its = 0 
+#     flag = True
+#     update = 0.0
+#     while(err >= 1.0e-8 and flag):
+#         update = - (f(theta) - x) / df(theta)
+#         err = abs(update)
+#         theta = theta + update
+#         if(its >= max_its):
+#             flag = False
+#         its = its + 1
+#     if(flag == False):
+#         theta = np.inf
+#     return theta
+
+# @njit
+def compute_theta(x, y0, max_its = 300):
+    y = y0
+    f_val = f(y) - x
     err = 1.0
     its = 0 
     flag = True
     update = 0.0
     while(err >= 1.0e-8 and flag):
-        update = - (f(theta) - x) / df(theta)
-        err = abs(update)
-        theta = theta + update
+        jac = df(y)
+        update = - np.linalg.inv(jac) @ f_val
+        err = np.sqrt(sum(update**2))
+        y = y + update
+        f_val = f(y) - x
         if(its >= max_its):
             flag = False
         its = its + 1
     if(flag == False):
-        theta = np.inf
-    return theta
-
+        y = np.array([np.inf, np.inf], float)
+    # print(y)
+    # print('err = '+str(err))
+    return y
 
 
 class rs_logit:
@@ -128,55 +197,65 @@ class rs_logit:
         self.w = 1.0e-3
         self.v = 1.0e-3
         self.tau = 1.0e-3
-        self.xi = np.zeros(self.m)
+        self.varphi = 1.0e-3
+        self.chi = np.zeros(self.m)
 
     def generate_pop(self):
         z0 = rnd.normal(size = self.m)
         q = rnd.normal(size = self.m)
         u = rnd.random(size = self.m)
-        lp = self.theta0 * z0
+        lp = self.theta0 * z0 + self.phi0
         prob = 0.5 * np.exp(lp) / np.cosh(lp)
         t = np.array(2 * np.array(u < prob, int) - np.ones(self.m), int)
         return t, z0, q
         
-    def solve(self, alpha):
-        self.alpha = alpha
+    
+    def solve(self, alpha, verbose = False):
         err = 1.0
         its = 0
         eta = 0.5
         w0 = self.w
         v0 = self.v
+        varphi0 = self.varphi
         tau0 = self.tau
-        while (err > 1.0e-8):
-            z = (w0 * self.z0 + v0 * self.q) / (1.0 + alpha * tau0)
-            xi =  prox_g(z, self.t, tau0 / (1.0 + alpha * tau0))
-            dg_xi = dg(xi, self.t) + alpha * xi
+        self.alpha = alpha
+        while (err>1.0e-8):
+            z =   (varphi0 + w0 * self.z0 + v0 * self.q ) / (1.0 + alpha * tau0)
+            chi = prox_g(z, self.t, tau0 / (1.0 + alpha * tau0))
+            dg_xi = dg(chi, self.t) + alpha * chi
             dg_0 = dg(self.theta0 * self.z0, self.t) 
             v1 = np.sqrt(np.mean((tau0 * dg_xi)**2) / self.zeta)
-            hess = ddg(xi) + alpha 
-            tau1 = inv(tau0, hess, self.zeta) 
+            hess = ddg(chi) + alpha 
+            tau1 = inv(tau0, hess, self.zeta)
             w1 = self.theta0 * np.mean(tau0 * dg_xi * dg_0) / self.zeta 
-            v = eta*v1 + (1-eta)*v0
-            w = eta*w1 + (1-eta)*w0
-            tau = eta*tau1 + (1-eta)*tau0
-            err = np.sqrt((v-v0)**2 + (w-w0)**2 + (tau-tau0)**2)
+            varphi1 =  np.mean(chi) 
+            v = eta * v1 + (1 - eta) * v0
+            w = eta * w1 + (1 - eta) * w0
+            tau = eta * tau1 + (1 - eta) * tau0
+            varphi = eta * varphi0 + (1 - eta) * varphi1
+            err = np.sqrt((v - v0)**2 + (w - w0)**2 + (tau - tau0)**2  + (varphi - varphi0)**2)
             its = its + 1
             v0 = v
             w0 = w
             tau0 = tau
+            varphi0 = varphi
+        if(verbose):
+            print(w, v, tau, varphi, err, its)
         self.w = w0
         self.v = v0
         self.tau = tau0
-        self.xi = xi
-        self.corr = self.theta0 * np.mean( 1.0 - np.tanh(self.theta0 * self.z0)**2 )
+        self.varphi = varphi0
+        self.chi = chi
+        self.corr = self.theta0 * np.mean( 1.0 - np.tanh(self.phi0 + self.theta0 * self.z0)**2 )
+        self.average = np.mean(np.tanh(self.phi0 + self.theta0 * self.z0))
         return 
-    
+
     def cv_bs(self):
-        lp_loo = self.xi + self.tau * (np.tanh(self.xi) - self.t + self.alpha * self.xi ) 
+        lp_loo = self.chi - self.varphi + self.tau * (np.tanh(self.chi) - self.t + self.alpha * self.chi ) 
         return bs_score(lp_loo)
     
     def cv_loss(self):
-        lp_loo = self.xi + self.tau * (np.tanh(self.xi) - self.t + self.alpha * self.xi ) 
+        lp_loo = self.chi - self.varphi + self.tau * (np.tanh(self.chi) - self.t + self.alpha * self.chi )
         return logit_loss(self.t, lp_loo)
     
     
@@ -199,10 +278,11 @@ class logit_model:
         self.cv_bs= np.zeros(self.l)
         self.cv_loss = np.zeros(self.l)
         self.corr = np.zeros(self.l)
+        self.average = np.zeros(self.l)
         for j in range(self.l):
             self.alpha = self.alphas[j]
             self.beta = newton(self.beta, self.t, self.x, self.alpha)
-            self.w[j], self.v[j], self.tau[j], self.gamma[j], self.cv_bs[j], self.cv_loss[j], self.corr[j] = logit_model.compute_observables(self)
+            self.w[j], self.v[j], self.tau[j], self.gamma[j], self.cv_bs[j], self.cv_loss[j], self.corr[j], self.average[j] = logit_model.compute_observables(self)
             self.betas[j,:] = self.beta
         return
         
@@ -215,7 +295,7 @@ class logit_model:
         v = tau * np.sqrt(np.mean(score ** 2) / self.zeta)
         gamma = np.mean( lp ** 2 )
         # w = np.sqrt( max(gamma - (1.0 - self.zeta) * (v ** 2), 0))
-        lp_loo = lp + tau * score
+        lp_loo = lp - self.beta[-1] + tau * score
         w = np.sqrt( max(np.mean(lp_loo**2) - v ** 2, 0))
         cv_bs_loo = bs_score(lp_loo)
         cv_loss = logit_loss(self.t, lp_loo) 
@@ -223,13 +303,16 @@ class logit_model:
             corr = np.mean(self.t * lp_loo / w)
         else: 
             corr = 0.0
-        return w, v, tau, gamma, cv_bs_loo, cv_loss, corr
+        average = np.mean(self.t)
+        return w, v, tau, gamma, cv_bs_loo, cv_loss, corr, average
 
 
         
     def generate_random_instance(self, beta0, phi0, A0, n):
-        X = rnd.multivariate_normal(np.zeros(self.p), A0 , size = n)
-        lp = X @ beta0 + phi0
+        X = rnd.multivariate_normal(np.zeros(self.p-1), A0 , size = n)
+        X0 = np.ones((n,1))
+        X = np.hstack((X,X0))
+        lp = X @ np.append(beta0, phi0)
         u = rnd.random(size = n)
         prob = 0.5 * (1.0 + np.tanh(lp))
         T = np.array(2 * np.array(u < prob, int) - np.ones(n), int)
@@ -238,35 +321,11 @@ class logit_model:
     
     def estimate_theta(self):
         idx = np.argmax(self.cv_loss)
-        theta_in = self.w[idx] * self.tau[idx] / (self.v[idx]**2)
-        self.theta_est = compute_theta(self.corr[idx], theta_in)
-        self.beta_best = self.betas[idx, :]
+        x = np.array([self.corr[idx], self.average[idx]], float)
+        self.theta_est, self.phi_est = compute_theta(x, np.zeros(2))
+        self.beta_best = self.betas[idx, :-1]
+        self.phi_best = self.betas[idx, -1]
         k = self.w[idx] / self.theta_est
         self.beta_db = self.beta_best / k 
         self.v_db = self.v[idx] / k
-        return 
-
-
-    def compute_loo_loss(self, i):
-        loo_loss = np.zeros(self.l)
-        idx = (np.arange(0, self.n) != i)
-        t_i, x_i = self.t[idx], self.x[idx, :]
-        beta_i = np.zeros(self.p)
-        tic = time.time()
-        for j in range(self.l):
-            alpha = self.alphas[j]
-            beta_i = newton(beta_i, t_i, x_i, alpha)
-            lp_i = self.x[i,:] @ beta_i
-            loo_loss[j] = np.log(2 * np.cosh(lp_i)) - lp_i * self.t[i]
-        toc = time.time()
-        elapsed_time = (toc -tic) / 60
-        print('process = ' + str(i)+', elapsed time = ' + str(elapsed_time))
-        return loo_loss
-    
-
-    def compute_cv_loss(self):
-        res = Parallel(n_jobs=12)(delayed(logit_model.compute_loo_loss)(self, i) for i in range(self.n))
-        t_df = pd.DataFrame(res)
-        loo_values = np.stack(t_df.to_numpy())
-        self.cd_cv_loss = np.mean(loo_values, axis = 0)
         return 
