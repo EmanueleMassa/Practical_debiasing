@@ -1,4 +1,4 @@
-# Practical_debiasing/Logit
+# Practical_debiasing/Cox
 
 This repository contains the scripts used in the manuscript "".
 
