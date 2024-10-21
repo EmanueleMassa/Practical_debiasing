@@ -13,4 +13,4 @@ It returns a csv file named 'sim_zeta...' containing the average and the standar
 It returns a csv file named 'rs_zeta...' containing the solution of the RS equations along the regularization path. |
 | ```qq_plot ```| Script used to generate the plots in figure $5$ in the reference manuscript. |
 | ```plots ```|Script used to generate the plots in figures $2$ and $3$ in the reference manuscript.  |
-|```tutorial ```| Tutorial explaining the use of the classes in "required_functions" used throughout the previous scripts : it showcases how to generate survival data, fit the Logit regression model with covariant regularization, estimate the RS order parameters from the data and solve the RS equations.|    
+|```tutorial ```| Tutorial explaining the use of the classes in "required_functions" used throughout the previous scripts : it showcases how to generate data from a logit model, fit the Logit regression model with covariant regularization, estimate the RS order parameters from the data and solve the RS equations.|    
